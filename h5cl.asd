@@ -9,5 +9,10 @@
                :uiop)
   :serial t
   :components ((:file "package")
-               (:file "h5cl"))
+               (:file "basics")
+               (:file "files")
+               (:file "groups")
+               (:file "datasets")
+               (:file "datatypes")
+               (:file "accessors"))
   :in-order-to ((test-op (test-op :h5cl.test))))

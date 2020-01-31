@@ -38,3 +38,10 @@
         (close-hdf5 h5file)
         (let ((h5file (open-hdf5 fn :direction :input)))
           (close-hdf5 h5file))))))
+
+(test make-group
+  (finishes
+    (with-temporary-filename fn
+      (let ((h5file (open-hdf5 fn :direction :io)))
+        (make-hdf5-group h5file "test")
+        (close-hdf5 h5file)))))

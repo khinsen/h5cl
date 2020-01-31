@@ -1,35 +1,6 @@
 (in-package :h5cl)
 
-;; A hdf5-object is anything that has an HDF5 id. This includes
-;; files, datasets, groups, and more.
-
-(defclass hdf5-object ()
-  ((id
-    :initarg :id
-    :reader hdf5-object-id
-    :documentation "C-level id (type hid_t)")))
-
-;; All HDF5 objects must be closed after use, at least to free memory.
-
-(defun close-id (id)
-  "Close an HDF5 id"
-  (when id
-    (unless (< 0 (hdf5:h5iis-valid id))
-      (error "Invalid id"))
-    (let ((type (hdf5:h5iget-type id)))
-      (cond ((eql type :H5I-ATTR) (hdf5:h5aclose id))
-            ((eql type :H5I-DATASET) (hdf5:h5dclose id))
-            ((eql type :H5I-DATASPACE) (hdf5:h5sclose id))
-            ((eql type :H5I-DATATYPE) (hdf5:h5tclose id))
-            ((eql type :H5I-FILE) (hdf5:h5fclose id))
-            ((eql type :H5I-GENPROP-LST) (hdf5:h5pclose id))
-            ((eql type :H5I-GROUP) (hdf5:h5gclose id))
-            (t (error (format nil "Can't close id ~a" type)))))))
-
-;;
-;; Files
-;;
-(defclass hdf5-file (hdf5-object)
+(defclass hdf5-file (hdf5-location)
   ((filename
     :initarg :filename
     :reader hdf5-file-filename
@@ -124,4 +95,3 @@
     (setf id nil)
     (close-id fapl-id)
     (setf fapl-id nil)))
-
