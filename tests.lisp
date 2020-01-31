@@ -56,3 +56,16 @@
         (is (eq (hdf5-containing-file subgroup) h5file))
         (is (equal (hdf5-path subgroup) "/test/subtest"))))))
 
+(test make-dataset
+  (with-temporary-file h5file
+    (let* ((data (make-array '(2 2)
+                             :element-type '(unsigned-byte 16)
+                             :initial-contents '((1 2) (3 4))))
+           (dataset (make-hdf5-dataset h5file "test"
+                                       (array-dimensions data)
+                                       :initial-contents data)))
+      (is (= (hdf5-dataset-rank dataset) (array-rank data)))
+      (is (equal (hdf5-dataset-dimensions dataset) (array-dimensions data)))
+      (is (equal (hdf5-dataset-element-type dataset) '(unsigned-byte 16)))
+      (is (eq (hdf5-containing-file dataset) h5file))
+      (is (equal (hdf5-path dataset) "/test")))))

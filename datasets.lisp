@@ -3,6 +3,66 @@
 (defclass hdf5-dataset (hdf5-named-object)
   ())
 
+;;
+;; Return information about datasets
+;;
+
+(defun hdf5-dataset-element-type (dataset)
+  "Return a type specifier for the elements of DATASET. For non-numeric
+types, the return value is not a valid Common Lisp type specifier."
+  (let* ((datatype-id (hdf5:h5dget-type (hdf5-object-id dataset)))
+         (native-type-id (hdf5:h5tget-native-type datatype-id :H5T-DIR-DEFAULT)))
+    (unless (and (< 0 (hdf5:h5iis-valid datatype-id))
+                 (< 0 (hdf5:h5iis-valid native-type-id)))
+      (error "Invalid datatype id"))
+    (close-id datatype-id)
+    (let ((type
+           (let ((class (hdf5:h5tget-class native-type-id))
+                 (precision (hdf5:h5tget-precision native-type-id))
+                 (sign (hdf5:h5tget-sign native-type-id)))
+             (case class
+               (:H5T-INTEGER (case sign
+                               (:H5T-SGN-NONE (list 'unsigned-byte precision))
+                               (:H5T-SGN-2 (list 'signed-byte precision))
+                               (otherwise (error "Unknown sign type: ~s" sign))) )
+               (:H5T-FLOAT (case precision
+                             (32 'single-float)
+                             (64 'double-float)
+                             (otherwise (error "Unknown float precision: ~s" precision))))
+               ;; Note: this is not a valid Common Lisp type specifier!
+               (otherwise (list 'hdf5-type class precision))))))
+      (close-id native-type-id)
+      type)))
+
+(defun hdf5-dataset-rank (dataset)
+  (let ((dataspace-id (hdf5:h5dget-space (hdf5-object-id dataset))))
+    (unless (< 0 (hdf5:h5iis-valid dataspace-id))
+      (error "Invalid dataspace id"))
+    (let ((rank (hdf5:h5sget-simple-extent-ndims dataspace-id)))
+      (close-id dataspace-id)
+      rank)))
+
+(defun hdf5-dataset-dimensions (dataset)
+  (let ((dataspace-id (hdf5:h5dget-space (hdf5-object-id dataset))))
+    (unless (< 0 (hdf5:h5iis-valid dataspace-id))
+      (error "Invalid dataspace id"))
+    (let ((rank (hdf5:h5sget-simple-extent-ndims dataspace-id))
+          dimensions max-dimensions)
+      (cffi:with-foreign-objects ((dims 'hdf5:hsize-t rank)
+                                  (maxdims 'hdf5:hsize-t rank))
+        (hdf5:h5sget-simple-extent-dims dataspace-id dims maxdims)
+        (setf dimensions
+              (loop for i below rank
+                    collect (cffi:mem-aref dims 'hdf5:hsize-t i)))
+        (setf max-dimensions
+              (loop for i below rank
+                    collect (cffi:mem-aref maxdims 'hdf5:hsize-t i))))
+      (close-id dataspace-id)
+      (values dimensions max-dimensions))))
+
+;;
+;; Create datasets
+;;
 (defun create-dataspace (dimensions &optional max-dimensions)
   (let* ((rank (list-length dimensions))
          (dimensions-ptr (cffi:foreign-alloc 'hdf5:hsize-t :count rank
@@ -17,14 +77,18 @@
     space))
 
 (defun create-dataset (location path dimensions max-dimensions element-type)
-  (let ((location-id (hdf5-object-id location))
-        (dspace (create-dataspace dimensions max-dimensions)))
-    (unwind-protect
-         (hdf5:h5dcreate2 location-id path element-type dspace
-                          hdf5:+H5P-DEFAULT+
-                          hdf5:+H5P-DEFAULT+
-                          hdf5:+H5P-DEFAULT+)
-      (close-id dspace))
+  (let* ((location-id (hdf5-object-id location))
+         (dspace-id (create-dataspace dimensions max-dimensions)))
+    (unless (< 0 (hdf5:h5iis-valid dspace-id))
+      (error "Invalid dataspace id"))
+    (let ((dataset-id
+           (hdf5:h5dcreate2 location-id path element-type dspace-id
+                            hdf5:+H5P-DEFAULT+
+                            hdf5:+H5P-DEFAULT+
+                            hdf5:+H5P-DEFAULT+)))
+      (close-id dspace-id)
+      (unless (< 0 (hdf5:h5iis-valid dataset-id))
+        (error "Invalid dataset id")))
     (hdf5-ref location path)))
 
 (defun write-dataset (location path dimensions max-dimensions element-type data)
@@ -55,7 +119,7 @@
 
   ;; Check dimensions and max-dimensions
   (unless (and (consp dimensions) (listp max-dimensions))
-    (error "DIMENSIONS and MAX-DIMENSIONS mus tbe lists."))
+    (error "DIMENSIONS and MAX-DIMENSIONS must tbe lists."))
   (when (and max-dimensions
              (not (= (list-length dimensions) (list-length max-dimensions))))
     (error "MAX-DIMENSIONS must have the same length as DIMENSIONS."))
