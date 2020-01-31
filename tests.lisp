@@ -13,6 +13,14 @@
           ,@body
        (uiop:delete-file-if-exists ,symbol))))
 
+(defmacro with-temporary-file (symbol &body body)
+  (let ((fn-symbol (gensym)))
+    `(with-temporary-filename ,fn-symbol
+       (let ((,symbol (open-hdf5 ,fn-symbol :direction :io)))
+         (unwind-protect
+              ,@body
+           (close-hdf5 ,symbol))))))
+
 (test create-new-file
   ;; Use open-hdf5
   (finishes
@@ -40,8 +48,11 @@
           (close-hdf5 h5file))))))
 
 (test make-group
-  (finishes
-    (with-temporary-filename fn
-      (let ((h5file (open-hdf5 fn :direction :io)))
-        (make-hdf5-group h5file "test")
-        (close-hdf5 h5file)))))
+  (with-temporary-file h5file
+    (let ((group (make-hdf5-group h5file "test")))
+      (is (eq (hdf5-containing-file group) h5file))
+      (is (equal (hdf5-path group) "/test"))
+      (let ((subgroup (make-hdf5-group group "subtest")))
+        (is (eq (hdf5-containing-file subgroup) h5file))
+        (is (equal (hdf5-path subgroup) "/test/subtest"))))))
+

@@ -56,8 +56,23 @@
     (print-unreadable-object (object out :type t)
       (format out "~s in file ~s" name (hdf5-file-filename file)))))
 
+(defgeneric hdf5-containing-file (hdf5-object)
+  (:documentation "Return the HDF5 file containing HDF5-OBJECT"))
+
+(defmethod hdf5-containing-file ((object hdf5-named-object))
+  (with-slots (file) object
+    file))
+
+(defgeneric hdf5-path (hdf5-object)
+  (:documentation "Return the path to HDF5-OBJECT inside its containing file"))
+
+(defmethod hdf5-path ((object hdf5-named-object))
+  (with-slots (name) object
+    name))
+
 ;;
 ;; A base class for HDF5 locations: files and groups
 ;;
 
 (defclass hdf5-location (hdf5-object) ())
+

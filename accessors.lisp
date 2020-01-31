@@ -13,17 +13,17 @@
                (:H5I-GROUP
                 (make-instance 'hdf5-group
                                :id object-id
-                               :file location
+                               :file (hdf5-containing-file location)
                                :name (get-name-for-id object-id)))
                (:H5I-DATASET
                 (make-instance 'hdf5-dataset
                                :id object-id
-                               :file location
+                               :file (hdf5-containing-file location)
                                :name (get-name-for-id object-id)))
                (:H5I-DATATYPE
                 (make-instance 'hdf5-datatype
                                :id object-id
-                               :file location
+                               :file (hdf5-containing-file location)
                                :name (get-name-for-id object-id)))
                (t (error "Not a group, dataset, or datatype: ~s" path)))))
         (trivial-garbage:finalize object

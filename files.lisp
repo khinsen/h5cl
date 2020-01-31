@@ -9,6 +9,12 @@
     :initarg :fapl-id
     :documentation "File access property list id")))
 
+(defmethod hdf5-containing-file ((file hdf5-file))
+  file)
+
+(defmethod hdf5-path ((file hdf5-file))
+  "/")
+
 (defmethod print-object ((object hdf5-file) out)
   (with-slots (filename) object
     (print-unreadable-object (object out :type t)
