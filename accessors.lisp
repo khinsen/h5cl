@@ -29,4 +29,13 @@
         (trivial-garbage:finalize object
                                   #'(lambda ()
                                       (close-id object-id)))
-        object)))
+        (if (null more-item-specs)
+            object
+            (apply #'hdf5-ref object more-item-specs)))))
+
+(defmethod hdf5-ref ((dataset hdf5-dataset) first-item-spec &rest more-item-specs)
+  (cond
+    ((and (eq first-item-spec 't)
+          (null more-item-specs))
+     (read-dataset dataset))
+    (t (error "Not yet implemented: ~s" (cons first-item-spec more-item-specs)))))

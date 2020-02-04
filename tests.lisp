@@ -21,6 +21,18 @@
               ,@body
            (close-hdf5 ,symbol))))))
 
+(defmacro with-temporary-file-write-then-read (symbol write read)
+  (let ((fn-symbol (gensym)))
+    `(with-temporary-filename ,fn-symbol
+       (let ((,symbol (open-hdf5 ,fn-symbol :direction :io)))
+         (unwind-protect
+              ,write
+           (close-hdf5 ,symbol)))
+       (let ((,symbol (open-hdf5 ,fn-symbol :direction :input)))
+         (unwind-protect
+              ,read
+           (close-hdf5 ,symbol))))))
+
 (test create-new-file
   ;; Use open-hdf5
   (finishes
@@ -69,3 +81,46 @@
       (is (equal (hdf5-dataset-element-type dataset) '(unsigned-byte 16)))
       (is (eq (hdf5-containing-file dataset) h5file))
       (is (equal (hdf5-path dataset) "/test")))))
+
+(test write-and-read-dataset
+  (dolist (type '((unsigned-byte 8)
+                  (unsigned-byte 16)
+                  (unsigned-byte 32)
+                  (unsigned-byte 64)
+                  (signed-byte 8)
+                  (signed-byte 16)
+                  (signed-byte 32)
+                  (signed-byte 64)))
+    (with-temporary-file h5file
+      (let* ((data (make-array '(2 2)
+                               :element-type type
+                               :initial-contents '((1 2) (3 4))))
+             (dataset (make-hdf5-dataset h5file "test"
+                                         (array-dimensions data)
+                                         :initial-contents data))
+             (read-data (hdf5-ref dataset 't)))
+        (is (equal (array-element-type data) (array-element-type read-data)))
+        (is (equalp data read-data))))))
+
+
+(test write-and-read-file
+  (dolist (type '((unsigned-byte 8)
+                  (unsigned-byte 16)
+                  (unsigned-byte 32)
+                  (unsigned-byte 64)
+                  (signed-byte 8)
+                  (signed-byte 16)
+                  (signed-byte 32)
+                  (signed-byte 64)))
+    (let ((data (make-array '(2 2)
+                            :element-type type
+                            :initial-contents '((1 2) (3 4)))))
+      (with-temporary-file-write-then-read h5file
+        (make-hdf5-dataset h5file "test"
+                           (array-dimensions data)
+                           :initial-contents data)
+        (progn
+          (let* ((dataset (hdf5-ref h5file "test"))
+                 (read-data (hdf5-ref dataset 't)))
+            (is (equal (array-element-type data) (array-element-type read-data)))
+            (is (equalp data read-data))))))))

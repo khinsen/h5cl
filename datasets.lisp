@@ -163,3 +163,26 @@ types, the return value is not a valid Common Lisp type specifier."
   ;; Create the dataset and write the initial contents
   (write-dataset location path dimensions max-dimensions
                  element-type (or initial-element initial-contents)))
+
+;;
+;; Read datasets
+;;
+(defun read-dataset (dataset)
+  (let* ((element-type (hdf5-dataset-element-type dataset))
+         (cffi-type (lisp-type->cffi-type element-type))
+         (hdf5-type (cffi-type->hdf5-type cffi-type))
+         (dimensions (hdf5-dataset-dimensions dataset))
+         (size (apply #'* dimensions))
+         (flat-array (make-array (list size)
+                                 :element-type element-type))
+         (array (make-array dimensions
+                            :element-type element-type
+                            :displaced-to flat-array)))
+    (cffi:with-foreign-object (f-array cffi-type size)
+      (hdf5:h5dread (hdf5-object-id dataset)
+                    hdf5-type
+                    hdf5:+H5S-ALL+ hdf5:+H5S-ALL+ hdf5:+H5P-DEFAULT+
+                    f-array)
+      (dotimes (i size)
+        (setf (aref flat-array i) (cffi:mem-aref f-array cffi-type i))))
+    (values array flat-array)))
